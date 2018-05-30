@@ -1,5 +1,8 @@
 dofile( "credentials.lua" )
-status_led = require( "status_led" )
+require( "status_led" )
+
+local status_led = StatusLed.new(7, 500)
+status_led:start()
 
 -- init mqtt client with logins, keepalive timer 120s
 m = mqtt.Client( MQTT_CLIENT_ID, 120, MQTT_USER, MQTT_PASS )
@@ -67,20 +70,20 @@ local function connect_mqtt()
         tmr.alarm(0, 1000, 1, send_relay_state)
         client:subscribe( MQTT_TOPIC_BASE .. "switch-cmd", 0, function(client)
             print("MQTT - Subscribed to topic")
-            status_led.stop()
+            status_led:stop()
         end)
     end,
     function(client, reason)
         print("MQTT Connection Failed: " .. reason)
     end)
 end
-reconnect_timer:register(3000,1,connect_mqtt)
+reconnect_timer:register(5000, 1, connect_mqtt)
 
 m:on("offline", function(client)
     print ("MQTT - Disconnected")
     tmr.unregister(0)
     reconnect_timer:start()
-    status_led.start()
+    status_led:start()
 end)
 
 connect_mqtt()

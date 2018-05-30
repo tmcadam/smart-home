@@ -1,12 +1,15 @@
 -- load credentials, 'SSID' and 'PASSWORD' declared and initialize in there
 dofile("credentials.lua")
-status_led = require("status_led")
+require( "status_led" )
+
+local status_led = StatusLed.new(7, 500)
 
 function startup()
     if file.open("init.lua") == nil then
         print("init.lua deleted or renamed")
     else
         print("Running")
+        status_led:stop()
         file.close("init.lua")
         -- the actual application is stored in 'application.lua'
         dofile("application.lua")
@@ -61,14 +64,13 @@ wifi_disconnect_event = function(T)
   end
 end
 
--- Flash the green led during setup
-status_led.start()
-
 -- Register WiFi Station event callbacks
 wifi.eventmon.register(wifi.eventmon.STA_CONNECTED, wifi_connect_event)
 wifi.eventmon.register(wifi.eventmon.STA_GOT_IP, wifi_got_ip_event)
 wifi.eventmon.register(wifi.eventmon.STA_DISCONNECTED, wifi_disconnect_event)
 
+-- Flash the green led during setup
+status_led:start()
 print("Connecting to WiFi access point...")
 wifi.setmode(wifi.STATION)
 wifi.sta.config({ssid=SSID, pwd=PASSWORD})
