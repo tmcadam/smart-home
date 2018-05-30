@@ -70,6 +70,7 @@ case $device in
             s20/s20_001_credentials.lua:credentials.lua \
             s20/s20_application.lua:application.lua \
             common/status_led.lua:status_led.lua \
+            common/simple_button.lua:simple_button.lua \
             -r
     ;;
 esac

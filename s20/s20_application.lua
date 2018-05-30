@@ -1,5 +1,6 @@
 dofile( "credentials.lua" )
 require( "status_led" )
+require( "simple_button" )
 
 local status_led = StatusLed.new(7, 500)
 status_led:start()
@@ -9,12 +10,7 @@ m = mqtt.Client( MQTT_CLIENT_ID, 120, MQTT_USER, MQTT_PASS )
 m:lwt( MQTT_TOPIC_BASE .. "lwt", "offline", 0, 0 )
 
 relay_pin = 6
-btn_pin = 3
-debounce_tmr = 1
-debounce_delay = 20
-
 gpio.mode(relay_pin,gpio.OUTPUT)
-gpio.mode(btn_pin, gpio.INPUT)
 gpio.write(relay_pin, gpio.LOW)
 
 local function send_relay_state()
@@ -30,6 +26,7 @@ local function toggle_relay_state()
     end
     print("Switch pressed - "  .. state )
 end
+local button = SimpleButton.new(3, toggle_relay_state)
 
 local function set_relay_state(data)
     if data == "1" then
@@ -39,20 +36,6 @@ local function set_relay_state(data)
     end
     print("Remote switch - "  .. data )
     send_relay_state()
-end
-
-local last_button_state = 1
-local function button_watcher()
-    button_state = gpio.read(btn_pin)
-    if button_state ~= last_button_state then
-        if button_state == 0 then
-            --Released
-        elseif button_state == 1 then
-            --Pressed
-            toggle_relay_state()
-        end
-        last_button_state = button_state
-    end
 end
 
 m:on("message", function(client, topic, data)
@@ -88,4 +71,3 @@ end)
 
 connect_mqtt()
 reconnect_timer:start()
-tmr.alarm(debounce_tmr, debounce_delay, tmr.ALARM_AUTO, button_watcher)
