@@ -13,15 +13,15 @@ while getopts ":f" o; do
             case $device in
               "wemos-switch")
                 FF="20m"; FM="dio"; FS="1MB"
-                FW="fw_flash/nodemcu-master-13-modules-2018-05-20-22-04-10-float.bin"
+                FW="fw_flash/wemos-2018-05-20-float.bin"
                 ;;
               "wemos-switch-button")
                 FF="20m"; FM="dio"; FS="1MB"
-                FW="fw_flash/nodemcu-master-13-modules-2018-05-20-22-04-10-float.bin"
+                FW="fw_flash/wemos-2018-05-20-float.bin"
                 ;;
               "wemos-temp-humidity")
                 FF="20m"; FM="dio"; FS="1MB"
-                FW="fw_flash/nodemcu-master-13-modules-2018-05-20-22-04-10-float.bin"
+                FW="fw_flash/wemos-2018-05-20-float.bin"
                 ;;
                "sonoff-s20")
                 FF="40m"; FM="dout"; FS="1MB"
