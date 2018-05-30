@@ -9,6 +9,7 @@ while getopts ":f" o; do
         f)
             device=$2
             echo "Updating firmware..."
+            read -p "Restart device in boot mode and press Enter..."
             case $device in
               "wemos-switch")
                 FF="20m"; FM="dio"; FS="1MB"
@@ -23,11 +24,12 @@ while getopts ":f" o; do
                 FW="fw_flash/nodemcu-master-13-modules-2018-05-20-22-04-10-float.bin"
                 ;;
                "sonoff-s20")
-                read -p "Restart Sonoff S20 in boot mode and press Enter..."
                 FF="40m"; FM="dout"; FS="1MB"
-                FW="fw_flash/nodemcu-master-13-modules-2018-05-20-22-04-10-float.bin"
+                FW="fw_flash/sonoff-s20-2018-05-30-integer.bin"
                 ;;
             esac
+            eval "esptool.py --port ${PORT} erase_flash"
+            read -p "Restart device in boot mode and press Enter..."
             eval "esptool.py --chip esp8266 --port ${PORT} write_flash -ff ${FF} -fs ${FS} -fm ${FM} 0x0000 ${FW}"
     esac
 done
@@ -61,7 +63,8 @@ case $device in
     ;;
     "sonoff-s20")
         echo "Installing s20 code"
-        sudo python3 reset-usb.py search "FTDI"
+        sudo python3 reset-usb.py search "FTDI"; sleep 3s
+        nodemcu-uploader -p $PORT node restart; sleep 3s
         nodemcu-uploader -p $PORT upload \
             s20/s20_init.lua:init.lua \
             s20/s20_001_credentials.lua:credentials.lua \
