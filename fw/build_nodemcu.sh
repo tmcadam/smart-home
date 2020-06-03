@@ -2,7 +2,9 @@
 
 set -e
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJ_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+DIR="${PROJ_DIR}/fw"
+
 port="/dev/ttyUSB0"
 
 usage() { echo "Usage: $0 -t <build|flash|all> [-p <string>] device_type" 1>&2; exit 1; }
@@ -28,7 +30,7 @@ if [ -z "${target}" ] || [ -z "${port}" ] || [ -z "${device_type}" ]; then
     usage
 fi
 
-DEV_DIR="${DIR}/devices/${device_type}"
+DEV_DIR="${PROJ_DIR}/devices/${device_type}"
 FW_DIR="${DIR}/nodemcu"
 mkdir -p "${FW_DIR}"
 
