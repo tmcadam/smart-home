@@ -1,5 +1,5 @@
 pin = 4
-gpio.mode(pin,gpio.OUTPUT)
+gpio.mode(pin, gpio.OUTPUT)
 
 lighton=0
 tmr.alarm(0,1000,1,function()
