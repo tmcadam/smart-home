@@ -1,76 +1,138 @@
 # install esp tools
-pip install -q esptool
-pip install -q nodemcu-uploader
-PORT="/dev/ttyUSB0"
+#sudo -H pip3 install -q esptool
+# sudo -H pip3 install -q nodemcu-uploader
 
-device=$1
-while getopts ":f" o; do
+port="/dev/ttyUSB0"
+version="latest"
+PROJ_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+usage() {
+  echo "Usage: $0 -t <local-lfs|local-lua|remote> -c <string> [-m] [-v <string>] [-p <string>] device_name" 1>&2;
+  echo -e "Device name ALL can be used with target remote only"
+  exit 1;
+}
+
+while getopts "mvt:p:c:" o; do
     case "${o}" in
-        f)
-            device=$2
-            echo "Updating firmware..."
-            read -p "Restart device in boot mode and press Enter..."
-            case $device in
-              "wemos-switch")
-                FF="20m"; FM="dio"; FS="1MB"
-                FW="fw_flash/wemos-2018-05-20-float.bin"
-                ;;
-              "wemos-switch-button")
-                FF="20m"; FM="dio"; FS="1MB"
-                FW="fw_flash/wemos-2018-05-20-float.bin"
-                ;;
-              "wemos-temp-humidity")
-                FF="20m"; FM="dio"; FS="1MB"
-                FW="fw_flash/wemos-2018-05-20-float.bin"
-                ;;
-               "sonoff-s20")
-                FF="40m"; FM="dout"; FS="1MB"
-                FW="fw_flash/sonoff-s20-2018-05-30-integer.bin"
-                ;;
-            esac
-            eval "esptool.py --port ${PORT} erase_flash"
-            read -p "Restart device in boot mode and press Enter..."
-            eval "esptool.py --chip esp8266 --port ${PORT} write_flash -ff ${FF} -fs ${FS} -fm ${FM} 0x0000 ${FW}"
+        v)
+            version=${OPTARG}
+            ;;
+        m)
+            monitor=M
+            ;;
+        t)
+            target=${OPTARG}
+            ((target == "local-lfs" || target == "local-lua" || target == remote)) || usage
+            ;;
+        p)
+            port=${OPTARG}
+            ;;
+        c)
+            config=${OPTARG}
+            ;;
+        *)
+            usage
+            ;;
     esac
 done
+shift $((OPTIND-1))
 
-case $device in
-    "wemos-switch")
-        echo "Installing switch code"
-        nodemcu-uploader -p $PORT upload \
-            wemos/init.lua:init.lua \
-            wemos/credentials.lua:credentials.lua \
-            wemos/relay-mqtt.lua:application.lua \
-            -r
-    ;;
-    "wemos-switch-button")
-        echo "Installing switch code"
-        sudo python3 reset-usb.py search "HL-340"; sleep 3s
-        nodemcu-uploader -p $PORT node restart; sleep 3s
-        nodemcu-uploader -p $PORT upload \
-            wemos/init.lua:init.lua \
-            wemos/credentials.lua:credentials.lua \
-            wemos/relay-button-mqtt.lua:application.lua \
-            -r
-    ;;
-    "wemos-temp-humidity")
-        echo "Installing temp-humidity code"
-        nodemcu-uploader -p $PORT upload \
-            wemos/init.lua:init.lua \
-            wemos/credentials.lua:credentials.lua \
-            wemos/temp-humidity-mqtt.lua:application.lua \
-            -r
-    ;;
-    "sonoff-s20")
-        echo "Installing s20 code"
-        sudo python3 reset-usb.py search "FTDI"; sleep 3s
-        nodemcu-uploader -p $PORT node restart; sleep 3s
-        nodemcu-uploader -p $PORT upload \
-            s20/s20_init.lua:init.lua \
-            s20/s20_001_credentials.lua:credentials.lua \
-            s20/s20_application.lua:application.lua \
-            common/status_led.lua:status_led.lua \
-            common/simple_button.lua:simple_button.lua \
-            -r
-    ;;
-esac
+device=${1}
+
+if [ -z "${target}" ] || [ -z "${port}" ] || [ -z "${device}" ]; then
+    usage
+fi
+
+if [ ${target} != "remote" ] && [ $device == "ALL" ]; then
+    usage
+fi
+
+# WEMOS: = FF="20m"; FM="dio"; FS="1MB"
+# SONOFF S20: FF="40m"; FM="dout"; FS="1MB"
+# NODEMCU: FF="40m"; FM="qio"; FS="4MB"
+
+build_device() {
+  echo "Building ${1}"
+  DEV_DIR="${PROJ_DIR}/devices/${1}"
+  declare -a src_list
+  declare -a src_list_b
+  let i=0
+  while IFS= read -r line || [[ -n "$line" ]];  do
+      if [[ "${line}" == *":"* ]]; then
+          orig="$(cut -d':' -f1 <<<"$line")"
+          mapped="$(cut -d':' -f2 <<<"$line")"
+          cp $PROJ_DIR/src/$orig $PROJ_DIR/tmp/$mapped
+          src_list[i]="$PROJ_DIR/tmp/${mapped}"
+          src_list_b[i]="$PROJ_DIR/src/${orig}:${mapped}"
+      else
+          src_list[i]="$PROJ_DIR/src/${line}"
+          src_list_b[i]="$PROJ_DIR/src/${line}:${line}"
+      fi
+      ((++i))
+  done < "${DEV_DIR}/src_list.cfg"
+
+  ${DEV_DIR}/luac.cross -f -o ${DEV_DIR}/${1}.img "${src_list[@]/#/}"
+
+  echo "Build complete"
+}
+
+upload_build() {
+  DEV_DIR="${PROJ_DIR}/devices/${1}"
+  echo "Sending ${1}.img to OTA server"
+  sshpass -p $WEBFACTION_PASS scp ${DEV_DIR}/${1}.img ${WEBFACTION_USER}@${WEBFACTION_HOST}:/home/ukfit/webapps/fw_swb/lfs/${1}_${version}.img
+  echo "OTA server updated"
+}
+
+if [[ ${target} == "remote" ]]; then
+    if [ ${device} == "ALL" ]; then
+      for i in $(ls ${PROJ_DIR}/devices/);
+      do
+        dev=${i%%/}
+        build_device $dev
+        echo $dev
+        upload_build $dev
+      done
+    else
+        build_device ${device}
+        upload_build ${device}
+    fi
+elif [[ ${target} == "local-lfs" ]]; then
+    DEV_DIR="${PROJ_DIR}/devices/${1}"
+    . "${DEV_DIR}/flash_options.cfg"
+    ### load locally
+    #sudo python3 reset-usb.py search ${usb_id}; sleep 1s
+
+    nodemcu-uploader -p $port file remove init.lua
+    nodemcu-uploader -p $port node restart
+    sleep 2s
+
+    nodemcu-uploader -p $port upload    ${DEV_DIR}/${device}.img:lfs.img \
+                                        ${PROJ_DIR}/src/init_lfs.lua:init.lua \
+                                        ${PROJ_DIR}/src/reflash.lua:reflash.lua
+    if [[ ${config} ]]; then
+        nodemcu-uploader -p $port upload ${PROJ_DIR}/config/${config}:config.json
+    fi
+
+    sleep 1s
+
+    #nodemcu-uploader -p $PORT node restart
+    nodemcu-uploader -p $port file do reflash.lua
+    nodemcu-uploader -p $port node restart
+elif [[ ${target} == "local-lua" ]]; then
+    DEV_DIR="${PROJ_DIR}/devices/${1}"
+    . "${DEV_DIR}/flash_options.cfg"
+    ### load locally
+    sudo python3 reset-usb.py search ${usb_id}; sleep 1s
+    nodemcu-uploader -p $port node restart
+    nodemcu-uploader -p $port upload    "${src_list_b[@]/#/}" \
+                                        ${PROJ_DIR}/src/init_non_lfs.lua:init.lua
+    if [[ ${config} ]]; then
+        nodemcu-uploader -p $port upload ${PROJ_DIR}/config/${config}:config.json
+    fi
+    sleep 1s
+    nodemcu-uploader -p $port node restart
+fi
+
+if [ -n "${monitor}" ]; then
+    miniterm.py ${port} 115200
+fi
