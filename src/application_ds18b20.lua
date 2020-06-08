@@ -39,32 +39,30 @@ end
 -----------------------------------------------------------------------
 
 local function onTBConnect()
-  debug("APP - Connected, changing status led to: ON")
-  statusLed:on()
+  debug("APP - Connected, changing status led to: OFF")
+  statusLed:off()
   t:read_temp(sendTemperature, C.app.sensorPin, t.C)
-  tmrSendTemperature:alarm(60000, tmr.ALARM_AUTO, function() 
+  tmrSendTemperature:alarm(60000, tmr.ALARM_AUTO, function()
     t:read_temp(sendTemperature, C.app.sensorPin, t.C)
-  end)
-  tmr.create():alarm(10000, tmr.ALARM_SINGLE, function()
-    debug("APP - Connected, changing status led to: OFF")
-    statusLed:off()
   end)
 end
 
 local function onTBConnecting()
-  debug("APP - Connecting, changing status led to: BLINK")
-  statusLed:blink()
+  debug("APP - Connecting")
 end
 
 local function onTBDisconnect()
-  debug("APP - Disconnected, changing status led to: OFF")
+  debug("APP - Disconnected")
   tmrSendTemperatureState:unregister()
-  statusLed:off()
 end
 
 -----------------------------------------------------------------------
 
 debug("APP - Starting: " .. C.core.deviceID)
+statusLed:blink()
+tmr.create():alarm(30000, tmr.ALARM_SINGLE, function()
+    statusLed:off()
+end)
 tbClient.setConfig({CORE=C.core, WIFI=C.wifi, MQTT=C.mqtt, OTA=C.ota})
 tbClient.setCallbacks(onRPC, onTBConnect, onTBConnecting, onTBDisconnect)
 tbClient.begin()
