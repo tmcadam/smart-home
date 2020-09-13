@@ -17,16 +17,28 @@ tmrSendPirState = tmr.create()
 gpio.mode(C.app.sensorPin, gpio.INT)
 
 local statusLed = LED(C.app.ledPin, 500, C.app.ledOn)
+local modeLed = LED(C.app.ledModePin, 500, C.app.ledModeOn)
 
-local function handleButton(presses)
-  if presses == 4 then
+local function handleButtonA(presses)
+  if presses == 1 then
+    debug("APP - Toggling motion mode")
+    tbClient.sendRPC('{ "method":"changeMotionMode", "params": "toggle" }')
+  elseif presses == 4 then
     debug("APP - Starting OTA")
     statusLed:blink()
     tbClient.startOTA()
   end
 end
 
-local button = Button(C.app.buttonPin, handleButton)
+local function handleButtonB(presses)
+  if presses == 1 then
+    debug("APP - Toggling light state")
+    tbClient.sendRPC('{ "method":"setRelayState", "params": "toggle" }')
+  end
+end
+
+local buttonA = Button(C.app.buttonPinA, handleButtonA)
+local buttonB = Button(C.app.buttonPinB, handleButtonB)
 
 local function sendPirState()
   local state = gpio.read(C.app.sensorPin)
@@ -38,18 +50,43 @@ local function sendPirState()
   tbClient.sendTelemetry({motion_detected=state})
 end
 
-local function pirInterruptHandler() 
+local function pirInterruptHandler()
   debug ("App - Motion detected")
   tmrSendPirState:stop()
   tmrSendPirState:start()
   tmr.create():alarm(1, tmr.ALARM_SINGLE, sendPirState)
 end
 
+local function setLed(value)
+  if value == true then
+    modeLed:on()
+  elseif value == false then
+    modeLed:off()
+  end
+end
+
+local function onRPC(data)
+  setLed(data.params)
+  return true
+end
+
 -----------------------------------------------------------------------
+
+local function attrHandler(code, data)
+  if (code < 0) then
+    debug("HTTP request failed")
+  else
+    local dataDecoder = sjson.decoder()
+    dataDecoder:write(data)
+    payload = dataDecoder:result()
+    setLed(payload.shared.motionMode)
+  end
+end
 
 local function onTBConnect()
   debug("APP - Connected, changing status led to: ON")
   statusLed:on()
+  tbClient.requestAttributes('sharedKeys=motionMode', attrHandler)
   sendPirState()
   tmrSendPirState:alarm(30000, tmr.ALARM_AUTO, sendPirState)
   gpio.trig(C.app.sensorPin, "up", pirInterruptHandler)
