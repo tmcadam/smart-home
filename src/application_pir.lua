@@ -107,6 +107,6 @@ end
 -----------------------------------------------------------------------
 
 debug("APP - Starting: " .. C.core.deviceID)
-tbClient.setConfig({CORE=C.core, WIFI=C.wifi, MQTT=C.mqtt, OTA=C.ota})
+tbClient.setConfig({CORE=C.core, WIFI=C.wifi, MQTT=C.mqtt, OTA=C.ota, HTTP=C.http})
 tbClient.setCallbacks(onRPC, onTBConnect, onTBConnecting, onTBDisconnect)
 tbClient.begin()

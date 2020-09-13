@@ -5,7 +5,6 @@ local C = {}
 local topicConnect = "v1/gateway/connect"
 local topicDisconnect = "v1/gateway/disconnect"
 local topicRPC = "v1/gateway/rpc"
-local topicAttributesRequest = "v1/gateway/attributes/request"
 local topicAttributes = "v1/gateway/attributes"
 local topicTelemetry = "v1/gateway/telemetry"
 local tmrSendConnectMsg = tmr.create()
@@ -67,6 +66,32 @@ function M.sendTelemetry(payload)
   m:publish(topicTelemetry, payload, 0, 0)
 end
 
+function M.sendRPC(payload)
+  if wifiState < 2 then
+    --debug("TB ERROR - Couldn't send RPC confirm message")
+    return
+  end
+  http.post(C.HTTP.url .. "/api/v1/" .. C.HTTP.token .. "/rpc",
+    'Content-Type: application/json\r\n',
+    payload,
+    function(code, data)
+      if (code < 0) then
+        print("HTTP request failed")
+      else
+        print(code, data)
+      end
+    end)
+end
+
+function M.requestAttributes(_keys, _handler)
+  if wifiState < 2 then
+    --debug("TB ERROR - Couldn't send RPC confirm message")
+    return
+  end
+  http.get("http://192.168.1.1:143/api/v1/DvuH0jszZBL7ty7KwyLC/attributes?" .. _keys, nil, _handler)
+  debug("TB - Sent request for attributes")
+end
+
 ----------------- NTP Sync----------------------------
 
 local function handleNTPSuccess()
@@ -115,11 +140,10 @@ function M.configureMQTT()
         mqttState = 2
         sendConnectMsg()
         tmrSendConnectMsg:alarm(15000, tmr.ALARM_AUTO, sendConnectMsg)
-        client:subscribe({[topicRPC]=0,[topicAttributes]=0,[topicAttributesRequest]=0},
+        client:subscribe({[topicRPC]=0,[topicAttributes]=0},
             function(m)
               debug("TB - Subscribed to RPC topic")
               debug("TB - Subscribed to Attributes topic")
-              debug("TB - Subscribed to Attributes Request topic")
               onTBConnect()
             end
         )
@@ -130,7 +154,6 @@ function M.configureMQTT()
       local dataDecoder = sjson.decoder()
       dataDecoder:write(data)
       payload = dataDecoder:result()
-
       if payload.device ~= C.MQTT.clientID then
         return
       end
