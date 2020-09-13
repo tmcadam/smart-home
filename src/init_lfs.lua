@@ -9,5 +9,5 @@ function startup()
   end
 end
 
-print("Startup will resume momentarily, you have 5 seconds to abort.")
+print("Startup will resume momentarily, you have 2 seconds to abort.")
 tmr.create():alarm(2000, tmr.ALARM_SINGLE, startup)
