@@ -74,22 +74,26 @@ end
 
 local function attrHandler(code, data)
   if (code < 0) then
-    debug("HTTP request failed")
+    debug("APP - HTTP request failed")
   else
+    debug("APP - attribute received")
+    debug("APP - " .. data)
     local dataDecoder = sjson.decoder()
     dataDecoder:write(data)
     payload = dataDecoder:result()
     setLed(payload.shared.motionMode)
+    debug("APP - Setting motion mode" )
   end
 end
 
 local function onTBConnect()
   debug("APP - Connected, changing status led to: ON")
   statusLed:on()
-  tbClient.requestAttributes('sharedKeys=motionMode', attrHandler)
   sendPirState()
   tmrSendPirState:alarm(30000, tmr.ALARM_AUTO, sendPirState)
   gpio.trig(C.app.sensorPin, "up", pirInterruptHandler)
+  debug("APP - Requesting motion_mode state from server")
+  tbClient.requestAttributes('sharedKeys=motionMode', attrHandler)
 end
 
 local function onTBConnecting()
