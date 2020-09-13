@@ -13,7 +13,7 @@ function Button.create(_pin, _pressedAction)
     self.pressedAction = _pressedAction
     self.tmr1 = tmr.create()
     self.counter = 0
-    gpio.mode(self.btnPin, gpio.INT)
+    gpio.mode(self.btnPin, gpio.INT, gpio.PULLUP)
     gpio.trig(self.btnPin, "down", function() self:buttonPressed() end)
     return self
 end
@@ -30,8 +30,8 @@ end
 
 function Button:buttonPressed()
     gpio.trig(self.btnPin, "none")
-    tmr.create():alarm( self.debounceDelay, 
-                tmr.ALARM_SINGLE, 
+    tmr.create():alarm( self.debounceDelay,
+                tmr.ALARM_SINGLE,
                 function()
                     gpio.trig(self.btnPin, "down", function() self:buttonPressed() end)
                     self:handleSinglePress()
