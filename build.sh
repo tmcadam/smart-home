@@ -50,12 +50,13 @@ fi
 # WEMOS: = FF="20m"; FM="dio"; FS="1MB"
 # SONOFF S20: FF="40m"; FM="dout"; FS="1MB"
 # NODEMCU: FF="40m"; FM="qio"; FS="4MB"
+declare -a src_list
+declare -a src_list_b
 
 build_device() {
   echo "Building ${1}"
   DEV_DIR="${PROJ_DIR}/devices/${1}"
-  declare -a src_list
-  declare -a src_list_b
+
   let i=0
   while IFS= read -r line || [[ -n "$line" ]];  do
       if [[ "${line}" == *":"* ]]; then
@@ -100,7 +101,11 @@ elif [[ ${target} == "local-lfs" ]]; then
     DEV_DIR="${PROJ_DIR}/devices/${1}"
     . "${DEV_DIR}/flash_options.cfg"
     ### load locally
-    #sudo python3 reset-usb.py search ${usb_id}; sleep 1s
+
+    build_device ${device}
+    echo "Building ${device}"
+
+    sudo python3 reset-usb.py search ${usb_id}; sleep 1s
 
     nodemcu-uploader -p $port file remove init.lua
     nodemcu-uploader -p $port node restart
@@ -121,14 +126,19 @@ elif [[ ${target} == "local-lfs" ]]; then
 elif [[ ${target} == "local-lua" ]]; then
     DEV_DIR="${PROJ_DIR}/devices/${1}"
     . "${DEV_DIR}/flash_options.cfg"
-    ### load locally
+
+    build_device ${device}
+
     sudo python3 reset-usb.py search ${usb_id}; sleep 1s
+    nodemcu-uploader -p $port file remove init.lua
     nodemcu-uploader -p $port node restart
-    nodemcu-uploader -p $port upload    "${src_list_b[@]/#/}" \
-                                        ${PROJ_DIR}/src/init_non_lfs.lua:init.lua
+    sleep 2s
+
     if [[ ${config} ]]; then
         nodemcu-uploader -p $port upload ${PROJ_DIR}/config/${config}:config.json
     fi
+    nodemcu-uploader -p $port upload    "${src_list_b[@]/#/}" \
+                                        ${PROJ_DIR}/src/init_non_lfs.lua:init.lua
     sleep 1s
     nodemcu-uploader -p $port node restart
 fi
